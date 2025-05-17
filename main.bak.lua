@@ -1,10 +1,13 @@
--- main_improved.lua
--- Pure-Lua minimal parallax + adaptive zoom example with enhancements (no external libs needed)
+-- main.lua
+-- Pure-Lua minimal parallax + adaptive zoom example (no external libs needed)
 
 local SCREEN_W, SCREEN_H = 800, 600
-local WORLD_W, WORLD_H = 1500, 1000
+local WORLD_W,  WORLD_H  = 1500, 1000
 local GROUND_HEIGHT = 30  -- Ground height from bottom of world
 local worldCenterX, worldCenterY = WORLD_W/2, WORLD_H/2  -- World center coordinates
+
+-- Track zoom mode for toggling
+local zoomMode = 1  -- 1 = normal, 2 = wider range
 
 -- Parallax layer definitions (image + speed factor)
 local layers = {}
@@ -55,8 +58,8 @@ function love.load()
     boss   = { x = WORLD_W - 100, y = groundY, size = 30 }
 
     -- Zoom parameters
-    zoomBase = 400
-    minZoom, maxZoom = 0.25, 0.75   -- Simple min/max zoom limits
+    zoomBase  = 100
+    minZoom, maxZoom = 0.25, 0.75
 
     -- Initial midpoint & zoom
     updateCameraPosition()
@@ -73,8 +76,11 @@ function updateCameraPosition()
     local dist = math.abs(player.x - boss.x)
     
     -- Adaptive zoom based on distance - add smoothing
-    local targetZoom = clamp(zoomBase / dist, minZoom, maxZoom)
-    
+    local zoomRanges = {
+        {min = 0.25, max = 0.75},   -- Normal zoom range
+        {min = 0.1, max = 1.0}      -- Extended zoom range
+    }
+    local targetZoom = clamp(zoomBase / dist, zoomRanges[zoomMode].min, zoomRanges[zoomMode].max)
     if not zoomLevel then
         zoomLevel = targetZoom  -- First initialization
     else
@@ -100,24 +106,11 @@ function love.update(dt)
         player.x = clamp(player.x + 200 * dt, 20, WORLD_W - 20)  -- Add padding
     end
     
-    -- Additional controls
-    if love.keyboard.isDown('r') then
-        -- Reset player position
-        player.x = 100
-    end
-    
     -- Ensure player stays at ground level
     player.y = groundY
     
     -- Update camera position and zoom
     updateCameraPosition()
-end
-
--- Handle key presses
-function love.keypressed(key)
-    if key == 'escape' then
-        love.event.quit()
-    end
 end
 
 function love.draw()
@@ -133,39 +126,20 @@ function love.draw()
     
     -- Draw parallax layers
     for _, layer in ipairs(layers) do
-        -- Calculate scaling to fill the world while preserving aspect ratio
+        -- Calculate scaling to fill the world
         local iw, ih = layer.img:getDimensions()
-        local imgAspect = iw / ih
-        local worldAspect = WORLD_W / WORLD_H
+        local sx, sy = WORLD_W/iw, WORLD_H/ih
         
-        local sx, sy
-        if imgAspect > worldAspect then
-            -- Image is wider than world (relative to heights), scale to match height
-            sy = WORLD_H / ih
-            sx = sy  -- Keep aspect ratio
-        else
-            -- Image is taller than world (relative to widths), scale to match width
-            sx = WORLD_W / iw
-            sy = sx  -- Keep aspect ratio
-        end
+        -- Calculate parallax offsets - slower layers move less with camera
+        -- Properly center each layer based on camera position and speed factor
+        local layerOffsetX = (mx - WORLD_W/2) * (1 - layer.speed)
+        local layerOffsetY = (my - WORLD_H/2) * (1 - layer.speed)
         
-        -- Calculate camera offset from world center
-        local cameraOffsetX = mx - worldCenterX
-        local cameraOffsetY = my - worldCenterY
-        
-        -- Apply parallax effect based on speed
-        local layerOffsetX = -cameraOffsetX * (1 - layer.speed)
-        local layerOffsetY = -cameraOffsetY * (1 - layer.speed)
-        
-        -- Calculate final draw position at world center with offset
-        local drawX = worldCenterX - (iw * sx / 2) + layerOffsetX
-        local drawY = worldCenterY - (ih * sy / 2) + layerOffsetY
-        
-        -- Draw the layer with proper positioning
+        -- Draw the layer with proper offset
         love.graphics.draw(
             layer.img,
-            drawX,
-            drawY,
+            layerOffsetX,
+            layerOffsetY,
             0,  -- rotation
             sx, sy  -- scale
         )
@@ -175,10 +149,6 @@ function love.draw()
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.setLineWidth(2 / zoomLevel)  -- Adjust line width for zoom
     love.graphics.line(0, groundY, WORLD_W, groundY)
-    
-    -- Draw midpoint indicator (yellow)
-    love.graphics.setColor(1, 1, 0)
-    love.graphics.circle('fill', mx, groundY, 5)
     
     -- Draw player on top (blue circle)
     love.graphics.setColor(0, 0, 1)
@@ -207,7 +177,7 @@ function love.draw()
     -- Draw HUD info (outside camera transform)
     love.graphics.setColor(1, 1, 1)
     love.graphics.print(string.format(
-        "Player: %.0f, %.0f | Zoom: %.2f | Controls: Left/Right arrows, R=Reset, ESC=Quit", 
+        "Player: %.0f, %.0f | Zoom: %.2f | Use left/right arrows to move", 
         player.x, player.y, zoomLevel
     ), 10, 10)
 end

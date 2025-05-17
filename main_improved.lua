@@ -6,6 +6,9 @@ local WORLD_W, WORLD_H = 1500, 1000
 local GROUND_HEIGHT = 30  -- Ground height from bottom of world
 local worldCenterX, worldCenterY = WORLD_W/2, WORLD_H/2  -- World center coordinates
 
+-- Track zoom mode for toggling
+local zoomMode = 1  -- 1 = normal, 2 = wider range
+
 -- Parallax layer definitions (image + speed factor)
 local layers = {}
 
@@ -55,8 +58,8 @@ function love.load()
     boss   = { x = WORLD_W - 100, y = groundY, size = 30 }
 
     -- Zoom parameters
-    zoomBase = 400
-    minZoom, maxZoom = 0.25, 0.75   -- Simple min/max zoom limits
+    zoomBase = 100
+    minZoom, maxZoom = 0.25, 0.75
 
     -- Initial midpoint & zoom
     updateCameraPosition()
@@ -73,7 +76,11 @@ function updateCameraPosition()
     local dist = math.abs(player.x - boss.x)
     
     -- Adaptive zoom based on distance - add smoothing
-    local targetZoom = clamp(zoomBase / dist, minZoom, maxZoom)
+    local zoomRanges = {
+        {min = 0.25, max = 0.75},   -- Normal zoom range
+        {min = 0.1, max = 1.0}      -- Extended zoom range
+    }
+    local targetZoom = clamp(zoomBase / dist, zoomRanges[zoomMode].min, zoomRanges[zoomMode].max)
     
     if not zoomLevel then
         zoomLevel = targetZoom  -- First initialization
@@ -115,7 +122,11 @@ end
 
 -- Handle key presses
 function love.keypressed(key)
-    if key == 'escape' then
+    if key == 'z' then
+        -- Toggle zoom mode
+        zoomMode = zoomMode == 1 and 2 or 1
+        print("Zoom mode: " .. (zoomMode == 1 and "Normal" or "Extended"))
+    elseif key == 'escape' then
         love.event.quit()
     end
 end
@@ -207,8 +218,8 @@ function love.draw()
     -- Draw HUD info (outside camera transform)
     love.graphics.setColor(1, 1, 1)
     love.graphics.print(string.format(
-        "Player: %.0f, %.0f | Zoom: %.2f | Controls: Left/Right arrows, R=Reset, ESC=Quit", 
-        player.x, player.y, zoomLevel
+        "Player: %.0f, %.0f | Zoom: %.2f | Mode: %s | Controls: Left/Right arrows, R=Reset, Z=ToggleZoom, ESC=Quit", 
+        player.x, player.y, zoomLevel, zoomMode == 1 and "Normal" or "Extended"
     ), 10, 10)
 end
 
