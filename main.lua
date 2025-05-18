@@ -1,219 +1,142 @@
--- main_improved.lua
--- Pure-Lua minimal parallax + adaptive zoom example with enhancements (no external libs needed)
+-- main_minimal.lua
+-- Ultra-simplified parallax + adaptive zoom example (bare essentials only)
 
 local SCREEN_W, SCREEN_H = 800, 600
-local WORLD_W, WORLD_H = 1500, 1000
-local GROUND_HEIGHT = 30  -- Ground height from bottom of world
-local worldCenterX, worldCenterY = WORLD_W/2, WORLD_H/2  -- World center coordinates
+local WORLD_W, WORLD_H = 900, 600
+local GROUND_HEIGHT = 10
 
--- Parallax layer definitions (image + speed factor)
+-- Simple variables for clean implementation
+local worldCenterX, worldCenterY = WORLD_W/2, WORLD_H/2
 local layers = {}
-
--- Clamp helper
-local function clamp(x, lo, hi)
-    if x < lo then return lo end
-    if x > hi then return hi end
-    return x
-end
-
 local player, boss
 local mx, my, zoomLevel
 local zoomBase, minZoom, maxZoom
-local groundY  -- Y-position of the ground in world coordinates
+local groundY
+
+-- Simple clamp function
+local function clamp(x, lo, hi)
+    return math.max(lo, math.min(x, hi))
+end
 
 function love.load()
     love.window.setMode(SCREEN_W, SCREEN_H)
-    love.graphics.setBackgroundColor(0, 0, 0)  -- Black background for safety
-
-    -- Compute ground Y position (from bottom of world)
-    groundY = WORLD_H - GROUND_HEIGHT
+    love.graphics.setBackgroundColor(0, 0, 0)
     
-    -- Load parallax images (288×192) with error handling
-    local function safeLoadImage(path)
-        local success, result = pcall(love.graphics.newImage, path)
-        if success then
-            return result
-        else
-            print("Warning: Failed to load image: " .. path)
-            -- Create a simple colored placeholder
-            local canvas = love.graphics.newCanvas(288, 192)
-            love.graphics.setCanvas(canvas)
-            love.graphics.clear(math.random(), math.random(), math.random(), 1)
-            love.graphics.setCanvas()
-            return canvas
-        end
-    end
+    -- Set ground level
+    groundY = SCREEN_H - GROUND_HEIGHT
     
+    -- Load images directly (no error handling for simplicity)
     layers = {
-        { img = safeLoadImage('assets/bg.png'), speed = 0.2 },
-        { img = safeLoadImage('assets/mg.png'), speed = 0.5 },
-        { img = safeLoadImage('assets/fg.png'), speed = 1.0 }
+        { img = love.graphics.newImage('assets/bg.png'), speed = 0.2 },
+        { img = love.graphics.newImage('assets/mg.png'), speed = 0.5 },
+        { img = love.graphics.newImage('assets/fg.png'), speed = 1.0 }
     }
 
-    -- Initialize player & boss - both at ground level
+    -- Set initial positions
     player = { x = 100, y = groundY, size = 20 }
-    boss   = { x = WORLD_W - 100, y = groundY, size = 30 }
+    boss = { x = WORLD_W - 100, y = groundY, size = 30 }
 
-    -- Zoom parameters
+    -- Zoom parameters - simple and direct
     zoomBase = 400
-    minZoom, maxZoom = 0.25, 0.75   -- Simple min/max zoom limits
-
-    -- Initial midpoint & zoom
-    updateCameraPosition()
+    minZoom, maxZoom = 0.2, 0.7
+    
+    -- Initialize camera
+    updateCamera()
 end
 
--- Update camera position and zoom based on player and boss positions
-function updateCameraPosition()
-    -- Compute midpoint (x only)
+-- Super simplified camera update
+function updateCamera()
+    -- Calculate zoom based on horizontal distance only
+    local dist = math.abs(player.x - boss.x)
+    local targetZoom = clamp(zoomBase / dist, minZoom, maxZoom)
+
+    -- Camera at horizontal midpoint between player and boss
     mx = (player.x + boss.x) * 0.5
-    -- Always center on ground level
+    
+    -- Always center vertically at ground level
     my = groundY
     
-    -- Calculate distance between player and boss (horizontal distance only)
-    local dist = math.abs(player.x - boss.x)
     
-    -- Adaptive zoom based on distance - add smoothing
-    local targetZoom = clamp(zoomBase / dist, minZoom, maxZoom)
     
+    -- Simple smoothing
     if not zoomLevel then
-        zoomLevel = targetZoom  -- First initialization
+        zoomLevel = targetZoom
     else
-        -- Apply smoothing to zoom changes (reduce jarring transitions)
         zoomLevel = zoomLevel + (targetZoom - zoomLevel) * 0.1
     end
-    
-    -- Calculate visible area dimensions in world coordinates
-    local visibleW = SCREEN_W / zoomLevel
-    local visibleH = SCREEN_H / zoomLevel
-    
-    -- Clamp camera to ensure view stays within world bounds
-    -- Using math.min/max for more predictable behavior
-    mx = math.max(visibleW * 0.5, math.min(mx, WORLD_W - visibleW * 0.5))
-    my = math.max(visibleH * 0.5, math.min(my, WORLD_H - visibleH * 0.5))
 end
 
 function love.update(dt)
-    -- Player movement (horizontal only)
+    -- Basic player movement
     if love.keyboard.isDown('left') then
-        player.x = clamp(player.x - 200 * dt, 20, WORLD_W - 20)  -- Add padding
+        player.x = clamp(player.x - 200 * dt, 20, WORLD_W - 20)
     elseif love.keyboard.isDown('right') then
-        player.x = clamp(player.x + 200 * dt, 20, WORLD_W - 20)  -- Add padding
+        player.x = clamp(player.x + 200 * dt, 20, WORLD_W - 20)
     end
     
-    -- Additional controls
-    if love.keyboard.isDown('r') then
-        -- Reset player position
-        player.x = 100
-    end
-    
-    -- Ensure player stays at ground level
-    player.y = groundY
-    
-    -- Update camera position and zoom
-    updateCameraPosition()
+    -- Update camera
+    updateCamera()
 end
 
--- Handle key presses
 function love.keypressed(key)
-    if key == 'escape' then
-        love.event.quit()
-    end
+    if key == 'escape' then love.event.quit() end
 end
 
 function love.draw()
-    -- Apply camera transform: center and zoom
+    -- Apply camera transform - this is the core of camera-based rendering
     love.graphics.push()
-    love.graphics.translate(SCREEN_W/2, SCREEN_H/2)
-    love.graphics.scale(zoomLevel)
-    love.graphics.translate(-mx, -my)
+        love.graphics.translate(SCREEN_W/2, SCREEN_H - GROUND_HEIGHT)
+        love.graphics.scale(zoomLevel*2)
+        love.graphics.translate(-mx, -my)
 
-    -- Calculate visible area in world coordinates
-    local visibleW = SCREEN_W / zoomLevel
-    local visibleH = SCREEN_H / zoomLevel
-    
-    -- Draw parallax layers
-    for _, layer in ipairs(layers) do
-        -- Calculate scaling to fill the world while preserving aspect ratio
-        local iw, ih = layer.img:getDimensions()
-        local imgAspect = iw / ih
-        local worldAspect = WORLD_W / WORLD_H
         
-        local sx, sy
-        if imgAspect > worldAspect then
-            -- Image is wider than world (relative to heights), scale to match height
-            sy = WORLD_H / ih
-            sx = sy  -- Keep aspect ratio
-        else
-            -- Image is taller than world (relative to widths), scale to match width
-            sx = WORLD_W / iw
-            sy = sx  -- Keep aspect ratio
+        -- Draw parallax layers - minimal implementation
+        for _, layer in ipairs(layers) do
+            local iw, ih = layer.img:getDimensions()
+            
+            -- Simple proportional scaling
+            local sx, sy = WORLD_W/iw, WORLD_H/ih
+            
+            -- Calculate parallax offset based on camera position
+            local offsetX = (mx - worldCenterX) * (1 - layer.speed)
+
+            local offsetY = (my - SCREEN_H + GROUND_HEIGHT) * (1 - layer.speed)
+            
+            -- Draw the layer with parallax offset
+            love.graphics.draw(
+                layer.img,
+                offsetX,
+                offsetY,
+                0,  -- rotation
+                sx, sy  -- scale
+            )
         end
         
-        -- Calculate camera offset from world center
-        local cameraOffsetX = mx - worldCenterX
-        local cameraOffsetY = my - worldCenterY
+        -- Draw ground line
+        love.graphics.setColor(0.5, 0.5, 0.5)
+        love.graphics.line(0, groundY, WORLD_W, groundY)
         
-        -- Apply parallax effect based on speed
-        local layerOffsetX = -cameraOffsetX * (1 - layer.speed)
-        local layerOffsetY = -cameraOffsetY * (1 - layer.speed)
+        -- Draw player (blue circle)
+        love.graphics.setColor(0, 0, 1)
+        love.graphics.circle('fill', player.x, player.y - player.size / 2, player.size)
         
-        -- Calculate final draw position at world center with offset
-        local drawX = worldCenterX - (iw * sx / 2) + layerOffsetX
-        local drawY = worldCenterY - (ih * sy / 2) + layerOffsetY
+        -- Draw boss (red square)
+        love.graphics.setColor(1, 0, 0)
+        love.graphics.rectangle('fill', 
+            boss.x - boss.size/2, boss.y - boss.size, boss.size, boss.size)
         
-        -- Draw the layer with proper positioning
-        love.graphics.draw(
-            layer.img,
-            drawX,
-            drawY,
-            0,  -- rotation
-            sx, sy  -- scale
-        )
-    end
-    
-    -- Draw ground line for reference
-    love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.setLineWidth(2 / zoomLevel)  -- Adjust line width for zoom
-    love.graphics.line(0, groundY, WORLD_W, groundY)
-    
-    -- Draw midpoint indicator (yellow)
-    love.graphics.setColor(1, 1, 0)
-    love.graphics.circle('fill', mx, groundY, 5)
-    
-    -- Draw player on top (blue circle)
-    love.graphics.setColor(0, 0, 1)
-    love.graphics.circle('fill', player.x, player.y - player.size / 2, player.size)
-    
-    -- Draw boss on top (red square)
-    love.graphics.setColor(1, 0, 0)
-    love.graphics.rectangle(
-        'fill', 
-        boss.x - boss.size/2, 
-        boss.y - boss.size, 
-        boss.size, 
-        boss.size
-    )
-    
-    -- Reset color
-    love.graphics.setColor(1, 1, 1)
+        -- Reset color
+        love.graphics.setColor(1, 1, 1)
 
-    -- Show world boundaries for debugging
-    love.graphics.setColor(0.8, 0.8, 0.8, 0.5)
-    love.graphics.rectangle('line', 0, 0, WORLD_W, WORLD_H)
-    love.graphics.setColor(1, 1, 1)
-    
     love.graphics.pop()
+
+    -- Minimal HUD (drawn outside camera transform so it stays fixed on screen)
+    love.graphics.setColor(1, 1, 1) -- Ensure text is white
+    love.graphics.print("Use Left/Right arrows to move, ESC to quit", 10, 10)
     
-    -- Draw HUD info (outside camera transform)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print(string.format(
-        "Player: %.0f, %.0f | Zoom: %.2f | Controls: Left/Right arrows, R=Reset, ESC=Quit", 
-        player.x, player.y, zoomLevel
-    ), 10, 10)
 end
 
--- Add window resize handler to maintain proper aspect ratio
+-- Simple window resize handler
 function love.resize(w, h)
     SCREEN_W, SCREEN_H = w, h
-    updateCameraPosition()
 end
