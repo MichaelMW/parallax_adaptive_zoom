@@ -130,9 +130,36 @@ function love.draw()
 
     love.graphics.pop()
 
-    -- Minimal HUD (drawn outside camera transform so it stays fixed on screen)
+    -- Enhanced HUD (drawn outside camera transform so it stays fixed on screen)
     love.graphics.setColor(1, 1, 1) -- Ensure text is white
-    love.graphics.print("Use Left/Right arrows to move, ESC to quit", 10, 10)
+    
+    -- Calculate distance for display
+    local dist = math.abs(player.x - boss.x)
+    
+    -- Display game information
+    local info = {
+        "CONTROLS: Left/Right arrows to move, ESC to quit",
+        "----------------------------------------",
+        string.format("Player: x=%.0f, y=%.0f", player.x, player.y),
+        string.format("Boss:   x=%.0f, y=%.0f", boss.x, boss.y),
+        string.format("Distance: %.0f", dist),
+        "----------------------------------------",
+        string.format("Camera: x=%.0f, y=%.0f", mx, my), 
+        string.format("Zoom: %.2f (Min: %.2f, Max: %.2f, Base: %.0f)", 
+            zoomLevel, minZoom, maxZoom, zoomBase),
+        "----------------------------------------",
+        "Parallax Layers:"
+    }
+    
+    -- Add layer info
+    for i, layer in ipairs(layers) do
+        table.insert(info, string.format("  Layer %d: Speed=%.1f", i, layer.speed))
+    end
+    
+    -- Print each line
+    for i, line in ipairs(info) do
+        love.graphics.print(line, 10, 10 + (i-1) * 18)
+    end
     
 end
 
