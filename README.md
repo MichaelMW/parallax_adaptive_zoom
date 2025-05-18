@@ -57,10 +57,10 @@ The code is organized into several logical components:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/parallax-demo.git
+git clone https://github.com/your-username/parallax_adaptive_zoom.git
 
 # Navigate to the project folder
-cd parallax-demo
+cd parallax_adaptive_zoom
 
 # Run with LÖVE
 love .
@@ -76,9 +76,6 @@ love .
 │   ├── bg.png        # Background layer (distant)
 │   ├── mg.png        # Middle layer
 │   └── fg.png        # Foreground layer
-└── utils/            # Utility modules
-    ├── camera.lua    # Alternative camera implementation
-    └── parallax.lua  # Helper functions for parallax effects
 ```
 
 ## License
